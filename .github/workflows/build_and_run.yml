@@ -1,91 +1,110 @@
-name: "Build and Scan .NET demo"
+name: "Seal Security ASP.NET Demo"
 
 on:
   workflow_dispatch:
     inputs:
       app_fix_mode:
-        description: "Fix mode for application vulnerabilities"
+        description: "Application vulnerability fix mode"
         type: choice
-        options: [ "all", "remote" ]
+        options: ["all", "remote", "local"]
         default: "all"
       os_fix_mode:
-        description: "Fix mode for OS vulnerabilities"
+        description: "OS vulnerability fix mode"
         type: choice
-        options: [ "all", "remote" ]
+        options: ["all", "remote", "local"]
         default: "all"
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DEMO_IMAGE: seal-demo-app
+  DOCKERFILE_PATH: fixed.Dockerfile
 
 jobs:
-  build-and-scan:
+  security-demo:
+    name: Build & Security Scan
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build original (vulnerable) image
+      - name: Build Seal-secured image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: original.Dockerfile
-          push: false
-          load: false
+          file: ${{ env.DOCKERFILE_PATH }}
+          tags: ${{ env.DEMO_IMAGE }}:latest
+          load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Build fixed (remediated) image with Seal
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: fixed.Dockerfile
-          tags: "seal-demo:latest"
-          push: false
-          load: true  # load into Docker for scanning
-          cache-from: type=gha
           secrets: |
             SEAL_TOKEN=${{ secrets.DEMO_SEAL_TOKEN }}
           build-args: |
-            SEAL_APP_FIX_MODE=${{ github.event.inputs.app_fix_mode }}
-            SEAL_OS_FIX_MODE=${{ github.event.inputs.os_fix_mode }}
+            SEAL_APP_FIX_MODE=${{ inputs.app_fix_mode || 'all' }}
+            SEAL_OS_FIX_MODE=${{ inputs.os_fix_mode || 'all' }}
+            SEAL_PROJECT_ID=${{ secrets.SEAL_PROJECT_ID || 'seal-docker-demo-app' }}
 
-      - name: Run the container (background)
-        run: docker run --rm --name seal-demo -d -p 80:80 seal-demo:latest
+      - name: Run application container
+        run: |
+          docker run --rm --name ${{ env.DEMO_IMAGE }} -d -p 8080:80 ${{ env.DEMO_IMAGE }}:latest
+          # Wait for container to be ready
+          sleep 3
+          echo "✅ Application running at http://localhost:8080"
 
-      - name: Scan container image with Snyk
+      - name: Security scan with Snyk
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
-          # Install Snyk CLI
-          curl -Lo ./snyk "https://github.com/snyk/cli/releases/latest/download/snyk-linux"
-          chmod +x ./snyk
+          # Install and authenticate Snyk CLI
+          curl -Lo snyk "https://github.com/snyk/cli/releases/latest/download/snyk-linux"
+          chmod +x snyk && sudo mv snyk /usr/local/bin/
+          snyk auth $SNYK_TOKEN
           
-          # Authenticate with Snyk
-          ./snyk auth $SNYK_TOKEN
+          # Configure organization if provided
+          if [ -n "${{ secrets.SNYK_ORG }}" ]; then
+            export SNYK_ORG="${{ secrets.SNYK_ORG }}"
+            ORG_FLAG="--org=$SNYK_ORG"
+          fi
           
-          # Scan the container image for vulnerabilities
-          ./snyk container test seal-demo:latest \
+          # Perform container security scan
+          echo "🔍 Scanning container for vulnerabilities..."
+          snyk container test ${{ env.DEMO_IMAGE }}:latest \
             --severity-threshold=medium \
-            --json > snyk-container-results.json || true
+            --project-name="${{ github.repository }}" \
+            --file=${{ env.DOCKERFILE_PATH }} \
+            ${ORG_FLAG:-} \
+            --json-file-output=snyk-results.json || true
           
-          # Generate human-readable report
-          ./snyk container test seal-demo:latest \
-            --severity-threshold=medium > snyk-container-report.txt || true
+          # Generate summary report
+          snyk container test ${{ env.DEMO_IMAGE }}:latest \
+            --severity-threshold=medium \
+            ${ORG_FLAG:-} > snyk-summary.txt || true
           
-          # Display summary
-          echo "## Snyk Container Scan Results" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          cat snyk-container-report.txt >> $GITHUB_STEP_SUMMARY || echo "No vulnerabilities found or scan completed with issues" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          # Add results to job summary
+          echo "## 🛡️ Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          head -50 snyk-summary.txt >> $GITHUB_STEP_SUMMARY || echo "Scan completed - check artifacts for details" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
-      - name: Upload Snyk results
-        uses: actions/upload-artifact@v4
+      - name: Upload security reports
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: snyk-container-results
+          name: security-scan-results
           path: |
-            snyk-container-results.json
-            snyk-container-report.txt
+            snyk-results.json
+            snyk-summary.txt
 
-      - name: Stop container
-        run: docker stop seal-demo
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop ${{ env.DEMO_IMAGE }} || true
+          docker system prune -f

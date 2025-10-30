@@ -1,23 +1,30 @@
-# original.Dockerfile
-# Stage 1: Build
+# ========================================
+# Vulnerable ASP.NET Demo - Original Build
+# Contains intentional security vulnerabilities
+# ========================================
+
 FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
 WORKDIR /src
 
-# Copy project files and restore dependencies (including vulnerable Newtonsoft.Json 10.0.3)
+# Copy project file and restore vulnerable dependencies
 COPY AppDemo.csproj .
 RUN dotnet restore
 
-# Copy the remaining source code and build+publish the app
+# Copy source code and build application
 COPY . .
-RUN dotnet publish -c Release -o /app/publish
+RUN dotnet publish -c Release -o /app/publish --no-restore
 
-# Stage 2: Runtime
-FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS final
+# Runtime image with vulnerabilities
+FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS runtime
 WORKDIR /app
 
-# Copy app binaries from build stage
-COPY --from=build /app/publish ./
+# Copy published application
+COPY --from=build /app/publish .
 
-# The image contains Newtonsoft.Json 10.0.3 (vulnerable) in the app's published dependencies
+# ⚠️  This image contains:
+# - Newtonsoft.Json 10.0.3 (CVE-2024-21907)
+# - Insecure deserialization code (CWE-502)
+# - Potentially vulnerable OS packages
+
 EXPOSE 80
-CMD ["dotnet", "AppDemo.dll"]
+ENTRYPOINT ["dotnet", "AppDemo.dll"]

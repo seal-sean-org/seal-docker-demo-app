@@ -18,13 +18,11 @@ This project contains **intentional security vulnerabilities** for demonstration
 ├── Pages/
 │   ├── Index.cshtml           # Razor page with JSON input form
 │   └── Index.cshtml.cs        # Code-behind with insecure deserialization
-├── original.Dockerfile        # Vulnerable Docker build
-├── fixed.Dockerfile          # Seal Security integrated build
-├── .seal-actions.yml         # Seal configuration for remediation
-├── .github/workflows/
-│   └── build_and_run.yml     # CI/CD pipeline with vulnerability scanning
-└── .grype/templates/
-    └── md.tmpl               # Vulnerability report template
+├── original.Dockerfile        # Vulnerable Docker build (for comparison)
+├── fixed.Dockerfile          # Seal Security integrated build (production-ready)
+├── .seal-actions.yml         # Seal configuration for vulnerability remediation
+└── .github/workflows/
+    └── build_and_run.yml     # CI/CD pipeline with Snyk security scanning
 ```
 
 ## Vulnerability Demonstration
@@ -49,19 +47,21 @@ This will create a `System.Version` object instead of the expected type, demonst
 
 ## Docker Builds
 
-### Vulnerable Build (original.Dockerfile)
+### Vulnerable Build (Baseline Comparison)
 ```bash
 docker build -f original.Dockerfile -t seal-demo:vulnerable .
-docker run -p 80:80 seal-demo:vulnerable
+docker run -p 8080:80 seal-demo:vulnerable
 ```
 
-### Remediated Build (fixed.Dockerfile)
-Requires Seal Security token:
+### Seal-Secured Build (Production Ready)
 ```bash
-docker build -f fixed.Dockerfile -t seal-demo:fixed \
+# Requires SEAL_TOKEN environment variable
+docker build -f fixed.Dockerfile -t seal-demo:secure \
   --secret id=SEAL_TOKEN,src=<(echo $SEAL_TOKEN) .
-docker run -p 80:80 seal-demo:fixed
+docker run -p 8080:80 seal-demo:secure
 ```
+
+Visit http://localhost:8080 to test the application.
 
 ## Seal Security Integration
 
@@ -76,32 +76,39 @@ The `fixed.Dockerfile` integrates Seal Security CLI to automatically:
 
 ```yaml
 projects:
-  app-demo:
+  seal-docker-demo-app:
     targets:
       - AppDemo.csproj
     manager:
       ecosystem: nuget
-      name: nuget
     overrides:
       Newtonsoft.Json:
         "10.0.3":
-          use: "10.0.3-sp1"  # Seal's patched version
+          use: "10.0.3-sp1"           # Seal's patched version  
+          reason: "Fixes CVE-2024-21907"
+          
+settings:
+  prefer_sealed_packages: true       # Use Seal patches over upgrades
+  upload_results: true              # Track fixes in Seal platform
 ```
 
 ## CI/CD Pipeline
 
 The GitHub Actions workflow (`.github/workflows/build_and_run.yml`) automates:
 
-1. Building both vulnerable and remediated images
-2. Running container vulnerability scans with Snyk
-3. Generating security reports and artifacts
-4. Demonstrating before/after security posture
+1. **Build**: Creates Seal-secured Docker image with vulnerability fixes
+2. **Deploy**: Runs the application container for testing
+3. **Scan**: Performs comprehensive security analysis with Snyk
+4. **Report**: Generates detailed vulnerability reports and artifacts
 
-### Trigger the Workflow
+### Workflow Triggers
+
+- **Push/PR**: Automatic security validation on code changes
+- **Manual**: On-demand execution via GitHub UI with custom parameters
 
 ```bash
-# Manual trigger via GitHub UI or:
-gh workflow run "Build and Scan .NET demo" \
+# Manual trigger with custom fix modes
+gh workflow run "Seal Security ASP.NET Demo" \
   --field app_fix_mode=all \
   --field os_fix_mode=all
 ```
@@ -164,9 +171,11 @@ snyk code test
 # Scan for dependency vulnerabilities  
 snyk test
 
-# Container scanning
-docker build -t test-image .
-snyk container test test-image --severity-threshold=medium
+# Container security scanning
+docker build -f fixed.Dockerfile -t secure-image .
+snyk container test secure-image \
+  --severity-threshold=medium \
+  --file=fixed.Dockerfile
 ```
 
 ## Educational Value

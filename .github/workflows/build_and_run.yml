@@ -19,7 +19,7 @@ on:
     branches: [main]
 
 env:
-  DEMO_IMAGE: seal-demo-app
+  DEMO_IMAGE: seal-docker-demo-app
   DOCKERFILE_PATH: fixed.Dockerfile
   # If you have a reserved ngrok domain, set it here (or add as secret NGROK_DOMAIN)
   NGROK_DOMAIN: sealdemo.ngrok.dev
@@ -33,7 +33,7 @@ jobs:
       NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
       NGROK_DOMAIN_SECRET: ${{ secrets.NGROK_DOMAIN }}
       NGROK_REGION: ${{ secrets.NGROK_REGION }}
-      SNYK_ORG: ${{ secrets.SNYK_ORG }}
+      SNYK_ORG: ${{ secrets.SNYK_ORG || '05215a8c-588e-4cfd-8b82-392af52001b6' }}
       SEAL_PROJECT_ID: ${{ secrets.SEAL_PROJECT_ID }}
     
     steps:
@@ -136,7 +136,7 @@ jobs:
           # Perform container security scan
           echo "Scanning container for vulnerabilities..."
           snyk container test ${{ env.DEMO_IMAGE }}:latest \
-            --project-name="${{ github.repository }}" \
+            --project-name="seal-sean-org/seal-docker-demo-app" \
             --file=${{ env.DOCKERFILE_PATH }} \
             ${ORG_FLAG:-} \
             --json-file-output=snyk-results.json || true

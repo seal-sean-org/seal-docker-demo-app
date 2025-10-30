@@ -4,11 +4,14 @@
     <TargetFramework>net7.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Seal applies security hotfix packages that NuGet labels as pre-release (sp1),
+         so ensure downgrade warning NU1605 stays a warning instead of failing the publish. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1605</WarningsNotAsErrors>
   </PropertyGroup>
   <ItemGroup>
     <!-- Vulnerable JSON library (known CVE-2024-21907 in versions <13.0.1) -->
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
-    <!-- Explicitly reference System.Net.Http to avoid NU1605 downgrade conflict after Seal remediation -->
-    <PackageReference Include="System.Net.Http" Version="4.3.0" />
+    <!-- Align with the Seal remediation artifact which rewrites this dependency to 4.3.0-sp1 -->
+    <PackageReference Include="System.Net.Http" Version="4.3.0-sp1" />
   </ItemGroup>
 </Project>

@@ -32,8 +32,7 @@ RUN --mount=type=secret,id=SEAL_TOKEN,env=SEAL_TOKEN \
             --upload-scan-results \
     && rm -f /usr/local/bin/seal
 
-# Re-restore and publish with remediated dependencies
-RUN dotnet restore AppDemo.csproj
+# Publish with remediated dependencies (no re-restore to keep Seal-applied fixes)
 RUN dotnet publish AppDemo.csproj -c Release -o /app/publish --no-restore
 
 # Runtime stage with Seal Security integration

@@ -66,7 +66,7 @@ jobs:
           echo "Application running at http://localhost:8080"
 
       - name: Stop existing ngrok tunnels
-        if: ${{ secrets.NGROK_AUTHTOKEN }}
+        if: ${{ secrets.NGROK_AUTHTOKEN != '' }}
         run: |
           # Stop any existing ngrok containers
           docker stop ngrok 2>/dev/null || true
@@ -92,7 +92,7 @@ jobs:
           fi
 
       - name: Start ngrok tunnel
-        if: ${{ secrets.NGROK_AUTHTOKEN }}
+        if: ${{ secrets.NGROK_AUTHTOKEN != '' }}
         run: |
           flags="--authtoken=${{ secrets.NGROK_AUTHTOKEN }}"
           if [ -n "${{ secrets.NGROK_DOMAIN }}" ]; then 
@@ -157,7 +157,7 @@ jobs:
             snyk-summary.txt
 
       - name: Keep tunnel alive
-        if: ${{ secrets.NGROK_AUTHTOKEN }}
+        if: ${{ secrets.NGROK_AUTHTOKEN != '' }}
         run: docker logs -f ngrok
 
       - name: Cleanup

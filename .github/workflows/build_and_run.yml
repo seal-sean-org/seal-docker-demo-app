@@ -53,10 +53,74 @@ jobs:
 
       - name: Run application container
         run: |
-          docker run --rm --name ${{ env.DEMO_IMAGE }} -d -p 8080:80 ${{ env.DEMO_IMAGE }}:latest
+          # Create network for app and ngrok communication
+          docker network create demo-network || true
+          
+          # Run the vulnerable application
+          docker run -d --name ${{ env.DEMO_IMAGE }} --network demo-network -p 8080:80 ${{ env.DEMO_IMAGE }}:latest
+          
           # Wait for container to be ready
-          sleep 3
+          sleep 5
           echo "✅ Application running at http://localhost:8080"
+
+      - name: Setup ngrok tunnel for live demo
+        if: ${{ secrets.NGROK_AUTHTOKEN }}
+        run: |
+          # Stop any existing ngrok tunnels
+          docker stop ngrok 2>/dev/null || true
+          docker rm ngrok 2>/dev/null || true
+          
+          # Clear existing tunnels via API if auth token available
+          if [ -n "${{ secrets.NGROK_AUTHTOKEN }}" ]; then
+            echo "🔧 Clearing existing ngrok tunnels..."
+            curl -s -H "Authorization: Bearer ${{ secrets.NGROK_AUTHTOKEN }}" \
+                 -H "Ngrok-Version: 2" \
+                 https://api.ngrok.com/tunnels 2>/dev/null | \
+            jq -r '.tunnels[]?.id // empty' 2>/dev/null | \
+            while read tunnel_id; do
+              if [ -n "$tunnel_id" ]; then
+                curl -s -X DELETE \
+                     -H "Authorization: Bearer ${{ secrets.NGROK_AUTHTOKEN }}" \
+                     -H "Ngrok-Version: 2" \
+                     "https://api.ngrok.com/tunnels/$tunnel_id" 2>/dev/null || true
+              fi
+            done
+            sleep 2
+          fi
+          
+          # Configure ngrok flags
+          flags="--authtoken=${{ secrets.NGROK_AUTHTOKEN }}"
+          if [ -n "${{ secrets.NGROK_DOMAIN }}" ]; then 
+            flags="$flags --hostname=${{ secrets.NGROK_DOMAIN }}"
+          fi
+          
+          # Start ngrok tunnel pointing to the app container
+          echo "🌐 Starting ngrok tunnel..."
+          docker run -d --name ngrok --network demo-network \
+            ngrok/ngrok http ${{ env.DEMO_IMAGE }}:80 $flags || {
+            echo "Failed with custom domain, trying with random URL..."
+            docker rm ngrok 2>/dev/null || true
+            docker run -d --name ngrok --network demo-network \
+              ngrok/ngrok http ${{ env.DEMO_IMAGE }}:80 --authtoken=${{ secrets.NGROK_AUTHTOKEN }}
+          }
+          
+          # Wait for tunnel to establish
+          sleep 10
+          
+          # Get the public URL
+          NGROK_URL=$(docker logs ngrok 2>&1 | grep -o 'https://[^[:space:]]*\.ngrok[^[:space:]]*' | head -1)
+          if [ -n "$NGROK_URL" ]; then
+            echo "🎯 **LIVE DEMO URL: $NGROK_URL**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🚨 Try the Vulnerability:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Visit: [$NGROK_URL]($NGROK_URL)" >> $GITHUB_STEP_SUMMARY
+            echo '2. Enter this JSON: `{ "$type": "System.Version, System.Private.CoreLib", "Major": 1, "Minor": 2 }`' >> $GITHUB_STEP_SUMMARY
+            echo "3. Click 'Deserialize' to see insecure deserialization in action!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **This demonstrates CVE-2024-21907 and CWE-502 vulnerabilities**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Failed to get ngrok URL" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Security scan with Snyk
         env:
@@ -103,8 +167,18 @@ jobs:
             snyk-results.json
             snyk-summary.txt
 
+      - name: Keep demo alive for testing
+        if: ${{ secrets.NGROK_AUTHTOKEN }}
+        run: |
+          echo "🕐 Keeping demo alive for 10 minutes for testing..."
+          echo "Check the job summary above for the live demo URL"
+          # Keep tunnel alive for demo purposes
+          timeout 600 docker logs -f ngrok || echo "Demo session ended"
+
       - name: Cleanup
         if: always()
         run: |
           docker stop ${{ env.DEMO_IMAGE }} || true
+          docker stop ngrok || true
+          docker network rm demo-network || true
           docker system prune -f

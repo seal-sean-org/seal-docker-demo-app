@@ -192,6 +192,35 @@ This demo illustrates:
 
 **This project contains intentional vulnerabilities and should never be deployed in production.** It is designed solely for educational and demonstration purposes to showcase security vulnerabilities and remediation techniques.
 
+## 🌐 Live Vulnerability Demo
+
+To demonstrate the vulnerability in action, the workflow can expose the application via ngrok:
+
+### Setup ngrok (Optional):
+1. Get ngrok auth token from https://ngrok.com
+2. Add `NGROK_AUTHTOKEN` secret to your repository
+3. Optionally add `NGROK_DOMAIN` for custom URL
+
+### Demo Flow:
+1. Run the GitHub Actions workflow
+2. Get the live URL from the job summary
+3. Test the vulnerability by entering malicious JSON:
+   ```json
+   { "$type": "System.Version, System.Private.CoreLib", "Major": 1, "Minor": 2 }
+   ```
+4. See how the app unsafely deserializes the input!
+
+## 🔐 Required GitHub Secrets
+
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `DEMO_SEAL_TOKEN` | ✅ | Seal Security API token |
+| `SNYK_TOKEN` | ✅ | Snyk API token |
+| `SNYK_ORG` | ⚪ | Snyk organization (optional) |
+| `SEAL_PROJECT_ID` | ⚪ | Custom project ID (optional) |
+| `NGROK_AUTHTOKEN` | ⚪ | For live demo (optional) |
+| `NGROK_DOMAIN` | ⚪ | Custom ngrok domain (optional) |
+
 ## Resources
 
 - [Microsoft Security Advisory - CA2326](https://docs.microsoft.com/en-us/dotnet/fundamentals/code-analysis/quality-rules/ca2326)

@@ -12,8 +12,10 @@ COPY AppDemo.csproj .
 RUN dotnet restore
 
 # Build application
+# Copy source code and build application
 COPY . .
-RUN dotnet publish -c Release -o /app/publish --no-restore
+# Publish the specific project to avoid MSBuild ambiguity when a solution file is present
+RUN dotnet publish AppDemo.csproj -c Release -o /app/publish --no-restore
 
 # Runtime stage with Seal Security integration
 FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS runtime
@@ -33,7 +35,7 @@ ADD --chmod=755 \
     https://github.com/seal-community/cli/releases/download/latest/seal-linux-amd64-latest \
     /usr/local/bin/seal
 
-# 🛡️ Apply Seal Security fixes
+# Apply Seal Security fixes
 RUN --mount=type=secret,id=SEAL_TOKEN,env=SEAL_TOKEN \
     # Fix application vulnerabilities (Newtonsoft.Json, etc.)
     SEAL_PROJECT=${SEAL_PROJECT_ID} \
@@ -50,7 +52,7 @@ RUN --mount=type=secret,id=SEAL_TOKEN,env=SEAL_TOKEN \
     # Clean up CLI binary
     rm -f /usr/local/bin/seal
 
-# ✅ This image now contains:
+# This image now contains:
 # - Patched Newtonsoft.Json (10.0.3-sp1 or equivalent)
 # - Updated OS packages with security fixes
 # - Same vulnerable application code (for demo purposes)

@@ -10,6 +10,7 @@
     <h1>JSON Deserialization Demo</h1>
     <p>Enter a JSON string to deserialize. (This uses an insecure setting that honors a <code>$type</code> field from input.)</p>
     <form method="post">
+        @Html.AntiForgeryToken()
         <textarea name="JsonInput" rows="6" cols="60">@Model.JsonInput</textarea><br/>
         <button type="submit">Deserialize</button>
     </form>

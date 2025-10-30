@@ -2,7 +2,7 @@
 
 This demo is a minimal ASP.NET 7 web application (Razor Pages) that intentionally uses an insecure JSON deserialization pattern. It includes a vulnerable version of Newtonsoft.Json 10.0.3 configured with an unsafe setting (TypeNameHandling.Auto).
 
-## 🚨 Security Vulnerabilities (Intentional)
+## Security Vulnerabilities (Intentional)
 
 This project contains **intentional security vulnerabilities** for demonstration purposes:
 
@@ -188,11 +188,11 @@ This demo illustrates:
 4. **DevSecOps Integration**: Security scanning in CI/CD pipelines
 5. **Vulnerability Management**: Before/after security posture comparison
 
-## ⚠️ Important Security Notice
+## Important Security Notice
 
 **This project contains intentional vulnerabilities and should never be deployed in production.** It is designed solely for educational and demonstration purposes to showcase security vulnerabilities and remediation techniques.
 
-## 🌐 Live Vulnerability Demo
+## Live Vulnerability Demo
 
 To demonstrate the vulnerability in action, the workflow can expose the application via ngrok:
 
@@ -214,12 +214,12 @@ To demonstrate the vulnerability in action, the workflow can expose the applicat
 
 | Secret | Required | Description |
 |--------|----------|-------------|
-| `DEMO_SEAL_TOKEN` | ✅ | Seal Security API token |
-| `SNYK_TOKEN` | ✅ | Snyk API token |
-| `SNYK_ORG` | ⚪ | Snyk organization (optional) |
-| `SEAL_PROJECT_ID` | ⚪ | Custom project ID (optional) |
-| `NGROK_AUTHTOKEN` | ⚪ | For live demo (optional) |
-| `NGROK_DOMAIN` | ⚪ | Custom ngrok domain (optional) |
+| `DEMO_SEAL_TOKEN` | Yes | Seal Security API token |
+| `SNYK_TOKEN` | Yes | Snyk API token |
+| `SNYK_ORG` | Optional | Snyk organization (optional) |
+| `SEAL_PROJECT_ID` | Optional | Custom project ID (optional) |
+| `NGROK_AUTHTOKEN` | Optional | For live demo (optional) |
+| `NGROK_DOMAIN` | Optional | Custom ngrok domain (optional) |
 
 ## Resources
 

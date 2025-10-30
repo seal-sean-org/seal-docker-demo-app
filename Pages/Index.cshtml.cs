@@ -9,6 +9,16 @@ public class IndexModel : PageModel
     public string? ResultTypeName { get; private set; }
     public string? ErrorMessage { get; private set; }
 
+    public void OnGet()
+    {
+        // Preload a demonstration payload that shows how $type controls object instantiation
+        JsonInput = @"{
+  ""$type"": ""System.Diagnostics.ProcessStartInfo, System.Diagnostics.Process"",
+  ""FileName"": ""echo"",
+  ""Arguments"": ""Vulnerable: TypeNameHandling.Auto allows arbitrary types!""
+}";
+    }
+
     public void OnPost()
     {
         if (!string.IsNullOrEmpty(JsonInput))

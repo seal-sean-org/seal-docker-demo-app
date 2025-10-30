@@ -21,6 +21,8 @@ on:
 env:
   DEMO_IMAGE: seal-demo-app
   DOCKERFILE_PATH: fixed.Dockerfile
+  # If you have a reserved ngrok domain, set it here (or add as secret NGROK_DOMAIN)
+  NGROK_DOMAIN: sealdemo.ngrok.dev
 
 jobs:
   security-demo:
@@ -61,7 +63,7 @@ jobs:
           
           # Wait for container to be ready
           sleep 5
-          echo "✅ Application running at http://localhost:8080"
+          echo "Application running at http://localhost:8080"
 
       - name: Stop existing ngrok tunnels
         if: ${{ secrets.NGROK_AUTHTOKEN }}
@@ -125,7 +127,7 @@ jobs:
           fi
           
           # Perform container security scan
-          echo "🔍 Scanning container for vulnerabilities..."
+          echo "Scanning container for vulnerabilities..."
           snyk container test ${{ env.DEMO_IMAGE }}:latest \
             --severity-threshold=medium \
             --project-name="${{ github.repository }}" \
@@ -139,7 +141,7 @@ jobs:
             ${ORG_FLAG:-} > snyk-summary.txt || true
           
           # Add results to job summary
-          echo "## 🛡️ Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           head -50 snyk-summary.txt >> $GITHUB_STEP_SUMMARY || echo "Scan completed - check artifacts for details" >> $GITHUB_STEP_SUMMARY

@@ -11,7 +11,8 @@
   <ItemGroup>
     <!-- Vulnerable JSON library (known CVE-2024-21907 in versions <13.0.1) -->
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
-    <!-- Align with the Seal remediation artifact which rewrites this dependency to 4.3.0-sp1 -->
-    <PackageReference Include="System.Net.Http" Version="4.3.0-sp1" />
+    <!-- Explicitly reference System.Net.Http to resolve dependency conflicts -->
+    <!-- Seal will upgrade this to 4.3.0-sp1 during the fix phase -->
+    <PackageReference Include="System.Net.Http" Version="4.3.0" />
   </ItemGroup>
 </Project>

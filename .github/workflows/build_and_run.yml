@@ -1,0 +1,91 @@
+name: "Build and Scan .NET demo"
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_fix_mode:
+        description: "Fix mode for application vulnerabilities"
+        type: choice
+        options: [ "all", "remote" ]
+        default: "all"
+      os_fix_mode:
+        description: "Fix mode for OS vulnerabilities"
+        type: choice
+        options: [ "all", "remote" ]
+        default: "all"
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build original (vulnerable) image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: original.Dockerfile
+          push: false
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build fixed (remediated) image with Seal
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: fixed.Dockerfile
+          tags: "seal-demo:latest"
+          push: false
+          load: true  # load into Docker for scanning
+          cache-from: type=gha
+          secrets: |
+            SEAL_TOKEN=${{ secrets.DEMO_SEAL_TOKEN }}
+          build-args: |
+            SEAL_APP_FIX_MODE=${{ github.event.inputs.app_fix_mode }}
+            SEAL_OS_FIX_MODE=${{ github.event.inputs.os_fix_mode }}
+
+      - name: Run the container (background)
+        run: docker run --rm --name seal-demo -d -p 80:80 seal-demo:latest
+
+      - name: Scan container image with Snyk
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          # Install Snyk CLI
+          curl -Lo ./snyk "https://github.com/snyk/cli/releases/latest/download/snyk-linux"
+          chmod +x ./snyk
+          
+          # Authenticate with Snyk
+          ./snyk auth $SNYK_TOKEN
+          
+          # Scan the container image for vulnerabilities
+          ./snyk container test seal-demo:latest \
+            --severity-threshold=medium \
+            --json > snyk-container-results.json || true
+          
+          # Generate human-readable report
+          ./snyk container test seal-demo:latest \
+            --severity-threshold=medium > snyk-container-report.txt || true
+          
+          # Display summary
+          echo "## Snyk Container Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          cat snyk-container-report.txt >> $GITHUB_STEP_SUMMARY || echo "No vulnerabilities found or scan completed with issues" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Snyk results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: snyk-container-results
+          path: |
+            snyk-container-results.json
+            snyk-container-report.txt
+
+      - name: Stop container
+        run: docker stop seal-demo

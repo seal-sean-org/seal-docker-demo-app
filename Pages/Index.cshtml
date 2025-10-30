@@ -1,0 +1,26 @@
+@page
+@model IndexModel
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>JSON Deserialization Demo</title>
+</head>
+<body>
+    <h1>JSON Deserialization Demo</h1>
+    <p>Enter a JSON string to deserialize. (This uses an insecure setting that honors a <code>$type</code> field from input.)</p>
+    <form method="post">
+        <textarea name="JsonInput" rows="6" cols="60">@Model.JsonInput</textarea><br/>
+        <button type="submit">Deserialize</button>
+    </form>
+
+    @if (Model.ResultTypeName != null)
+    {
+        <p><strong>Deserialized object type:</strong> @Model.ResultTypeName</p>
+    }
+    @if (Model.ErrorMessage != null)
+    {
+        <p style="color:red;"><strong>Error:</strong> @Model.ErrorMessage</p>
+    }
+</body>
+</html>

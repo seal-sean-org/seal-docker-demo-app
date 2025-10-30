@@ -1,0 +1,14 @@
+# .seal-actions.yml (Seal config file for local automatic remediation)
+meta:
+  schema-version: 0.1.0
+projects:
+  app-demo:
+    targets:
+      - AppDemo.csproj    # the manifest to apply fixes (our .NET project file)
+    manager:
+      ecosystem: nuget
+      name: nuget         # using NuGet package manager
+    overrides:
+      Newtonsoft.Json:
+        "10.0.3":
+          use: "10.0.3-sp1"  # replace with Seal's secured version 10.0.3-sp1 (an example patched build)

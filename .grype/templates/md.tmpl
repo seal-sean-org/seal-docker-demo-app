@@ -1,0 +1,71 @@
+# Vulnerability Scan Report
+
+## Scan Summary
+
+- **Target**: {{.Source.Target}}
+- **Timestamp**: {{.Timestamp}}
+- **Vulnerabilities Found**: {{len .Matches}}
+
+## Vulnerabilities by Severity
+
+{{- $critical := 0}}
+{{- $high := 0}}
+{{- $medium := 0}}
+{{- $low := 0}}
+{{- $negligible := 0}}
+{{- $unknown := 0}}
+
+{{- range .Matches}}
+  {{- if eq .Vulnerability.Severity "Critical"}}
+    {{- $critical = add $critical 1}}
+  {{- else if eq .Vulnerability.Severity "High"}}
+    {{- $high = add $high 1}}
+  {{- else if eq .Vulnerability.Severity "Medium"}}
+    {{- $medium = add $medium 1}}
+  {{- else if eq .Vulnerability.Severity "Low"}}
+    {{- $low = add $low 1}}
+  {{- else if eq .Vulnerability.Severity "Negligible"}}
+    {{- $negligible = add $negligible 1}}
+  {{- else}}
+    {{- $unknown = add $unknown 1}}
+  {{- end}}
+{{- end}}
+
+| Severity | Count |
+|----------|-------|
+| Critical | {{$critical}} |
+| High     | {{$high}} |
+| Medium   | {{$medium}} |
+| Low      | {{$low}} |
+| Negligible | {{$negligible}} |
+| Unknown  | {{$unknown}} |
+
+## Detailed Vulnerabilities
+
+{{- range .Matches}}
+### {{.Vulnerability.ID}} - {{.Vulnerability.Severity}}
+
+- **Package**: {{.Artifact.Name}} ({{.Artifact.Version}})
+- **Type**: {{.Artifact.Type}}
+- **Location**: {{.Artifact.Locations}}
+{{- if .Vulnerability.Description}}
+- **Description**: {{.Vulnerability.Description}}
+{{- end}}
+{{- if .Vulnerability.URLs}}
+- **URLs**: 
+  {{- range .Vulnerability.URLs}}
+  - {{.}}
+  {{- end}}
+{{- end}}
+{{- if .Vulnerability.Fix}}
+- **Fixed in**: {{.Vulnerability.Fix.Versions}}
+{{- end}}
+
+---
+{{- end}}
+
+{{- if not .Matches}}
+## 🎉 No vulnerabilities found!
+
+The scan completed successfully with no security issues detected.
+{{- end}}

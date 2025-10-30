@@ -2,17 +2,17 @@
 
 A minimal ASP.NET 7 application demonstrating Seal Security's automated vulnerability remediation in Docker builds.
 
-## 🎯 What This Demo Shows
+## What This Demo Shows
 
 **Live Demo:** https://sealdemo.ngrok.dev/
 
 This project demonstrates:
-- ✅ **Seal Security patches working** - Automatically remediates infrastructure CVEs (System.Net.Http)
-- ⚠️ **Application vulnerabilities** - Shows Newtonsoft.Json deserialization exploit (requires code changes)
-- 🐳 **Docker integration** - Multi-stage builds with Seal CLI
-- 🔄 **CI/CD automation** - GitHub Actions with Snyk scanning
+- Seal Security patches working - Automatically remediates infrastructure CVEs (System.Net.Http)
+- Application vulnerabilities - Shows Newtonsoft.Json deserialization exploit (requires code changes)
+- Docker integration - Multi-stage builds with Seal CLI
+- CI/CD automation - GitHub Actions with Snyk scanning
 
-## 🔓 Intentional Vulnerabilities
+## Intentional Vulnerabilities
 
 ### 1. Infrastructure Vulnerability (PATCHED BY SEAL)
 - **Package:** System.Net.Http 4.3.0
@@ -41,7 +41,7 @@ This project demonstrates:
     └── build_and_run.yml     # CI/CD pipeline with Snyk security scanning
 ```
 
-## 🧪 Try the Exploit
+## Try the Exploit
 
 Visit **https://sealdemo.ngrok.dev/** and paste this JSON:
 
@@ -65,7 +65,7 @@ var settings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.
 object? obj = JsonConvert.DeserializeObject(JsonInput, settings);
 ```
 
-## 🐳 Local Testing
+## Local Testing
 
 ### Build Without Seal (Vulnerable Baseline)
 ```bash
@@ -83,7 +83,7 @@ docker run -p 8080:80 seal-demo:secure
 
 **Note:** Both builds show the Newtonsoft.Json vulnerability - Seal patches System.Net.Http only.
 
-## 🛡️ Seal Security Integration
+## Seal Security Integration
 
 The `fixed.Dockerfile` integrates Seal CLI to automatically remediate vulnerabilities:
 
@@ -112,7 +112,7 @@ RUN dotnet restore AppDemo.csproj
 RUN dotnet publish AppDemo.csproj -c Release -o /app/publish
 ```
 
-## 🔄 CI/CD Pipeline
+## CI/CD Pipeline
 
 The GitHub Actions workflow automates:
 
@@ -221,7 +221,7 @@ To demonstrate the vulnerability in action, the workflow can expose the applicat
    ```
 4. See how the app unsafely deserializes the input!
 
-## 🔐 Required GitHub Secrets
+## Required GitHub Secrets
 
 | Secret | Required | Description |
 |--------|----------|-------------|

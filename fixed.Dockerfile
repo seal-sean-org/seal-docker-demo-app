@@ -9,7 +9,7 @@ WORKDIR /src
 
 # Establish restore cache by copying project file first and performing initial restore
 COPY AppDemo.csproj .
-RUN dotnet restore
+RUN dotnet restore AppDemo.csproj
 
 # Bring in the rest of the source
 COPY . .
@@ -33,7 +33,7 @@ RUN --mount=type=secret,id=SEAL_TOKEN,env=SEAL_TOKEN \
     && rm -f /usr/local/bin/seal
 
 # Re-restore and publish with remediated dependencies
-RUN dotnet restore
+RUN dotnet restore AppDemo.csproj
 RUN dotnet publish AppDemo.csproj -c Release -o /app/publish --no-restore
 
 # Runtime stage with Seal Security integration

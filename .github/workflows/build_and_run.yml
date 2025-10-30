@@ -57,7 +57,7 @@ jobs:
           build-args: |
             SEAL_APP_FIX_MODE=${{ inputs.app_fix_mode || 'all' }}
             SEAL_OS_FIX_MODE=${{ inputs.os_fix_mode || 'all' }}
-            SEAL_PROJECT_ID=${{ secrets.SEAL_PROJECT_ID || 'seal-docker-demo-app' }}
+            SEAL_PROJECT_ID=${{ env.SEAL_PROJECT_ID }}
 
       - name: Run application container
         run: |

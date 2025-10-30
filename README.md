@@ -1,13 +1,29 @@
-# Seal Security ASP.NET Deserialization Demo Project
+# Seal Security ASP.NET Demo
 
-This demo is a minimal ASP.NET 7 web application (Razor Pages) that intentionally uses an insecure JSON deserialization pattern. It includes a vulnerable version of Newtonsoft.Json 10.0.3 configured with an unsafe setting (TypeNameHandling.Auto).
+A minimal ASP.NET 7 application demonstrating Seal Security's automated vulnerability remediation in Docker builds.
 
-## Security Vulnerabilities (Intentional)
+## 🎯 What This Demo Shows
 
-This project contains **intentional security vulnerabilities** for demonstration purposes:
+**Live Demo:** https://sealdemo.ngrok.dev/
 
-1. **Insecure Deserialization (CWE-502)**: Uses `TypeNameHandling.Auto` which allows JSON `$type` field to control object instantiation
-2. **Vulnerable Dependency (CVE-2024-21907)**: Uses Newtonsoft.Json 10.0.3 which has a known high-severity stack overflow vulnerability
+This project demonstrates:
+- ✅ **Seal Security patches working** - Automatically remediates infrastructure CVEs (System.Net.Http)
+- ⚠️ **Application vulnerabilities** - Shows Newtonsoft.Json deserialization exploit (requires code changes)
+- 🐳 **Docker integration** - Multi-stage builds with Seal CLI
+- 🔄 **CI/CD automation** - GitHub Actions with Snyk scanning
+
+## 🔓 Intentional Vulnerabilities
+
+### 1. Infrastructure Vulnerability (PATCHED BY SEAL)
+- **Package:** System.Net.Http 4.3.0
+- **Fix:** Seal upgrades to 4.3.0-sp1
+- **CVEs Fixed:** CVE-2018-8292, CVE-2017-0247, CVE-2017-0248, CVE-2017-0249
+
+### 2. Application Vulnerability (DEMO PURPOSES - STILL EXPLOITABLE)
+- **Package:** Newtonsoft.Json 10.0.3
+- **Issue:** Insecure deserialization (CWE-502) with `TypeNameHandling.Auto`
+- **CVE:** CVE-2024-21907
+- **Why Not Patched:** Requires upgrade to 13.0.1+ and code changes (breaking change)
 
 ## Project Structure
 
@@ -25,9 +41,23 @@ This project contains **intentional security vulnerabilities** for demonstration
     └── build_and_run.yml     # CI/CD pipeline with Snyk security scanning
 ```
 
-## Vulnerability Demonstration
+## 🧪 Try the Exploit
 
-The web application presents a form where users can input JSON. When submitted, the app deserializes the JSON using unsafe settings:
+Visit **https://sealdemo.ngrok.dev/** and paste this JSON:
+
+```json
+{
+  "$type": "System.Diagnostics.ProcessStartInfo, System.Diagnostics.Process",
+  "FileName": "echo",
+  "Arguments": "Vulnerable: TypeNameHandling.Auto allows arbitrary types!"
+}
+```
+
+**Result:** The app instantiates `ProcessStartInfo` - proving arbitrary type instantiation is possible.
+
+**Why This Matters:** An attacker could execute commands, read files, or take over the server.
+
+### The Vulnerable Code
 
 ```csharp
 // UNSAFE: TypeNameHandling.Auto allows $type control
@@ -35,83 +65,64 @@ var settings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.
 object? obj = JsonConvert.DeserializeObject(JsonInput, settings);
 ```
 
-### Example Exploit
+## 🐳 Local Testing
 
-Try entering this JSON to see how `$type` controls object instantiation:
-
-```json
-{ "$type": "System.Version, System.Private.CoreLib", "Major": 1, "Minor": 2, "Build": 3, "Revision": 4 }
-```
-
-This will create a `System.Version` object instead of the expected type, demonstrating the vulnerability.
-
-## Docker Builds
-
-### Vulnerable Build (Baseline Comparison)
+### Build Without Seal (Vulnerable Baseline)
 ```bash
 docker build -f original.Dockerfile -t seal-demo:vulnerable .
 docker run -p 8080:80 seal-demo:vulnerable
 ```
 
-### Seal-Secured Build (Production Ready)
+### Build With Seal (Patched Infrastructure)
 ```bash
-# Requires SEAL_TOKEN environment variable
+export SEAL_TOKEN="your-seal-token"
 docker build -f fixed.Dockerfile -t seal-demo:secure \
   --secret id=SEAL_TOKEN,src=<(echo $SEAL_TOKEN) .
 docker run -p 8080:80 seal-demo:secure
 ```
 
-Visit http://localhost:8080 to test the application.
+**Note:** Both builds show the Newtonsoft.Json vulnerability - Seal patches System.Net.Http only.
 
-## Seal Security Integration
+## 🛡️ Seal Security Integration
 
-The `fixed.Dockerfile` integrates Seal Security CLI to automatically:
+The `fixed.Dockerfile` integrates Seal CLI to automatically remediate vulnerabilities:
 
-1. **Detect vulnerabilities** in application dependencies and OS packages
-2. **Download patched versions** of vulnerable packages (e.g., Newtonsoft.Json 10.0.3-sp1)
-3. **Apply OS security updates** to base image
-4. **Upload scan results** to Seal Security platform
+**What Seal Fixed:**
+- ✅ System.Net.Http 4.3.0 → 4.3.0-sp1 (4 CVEs remediated)
+- ✅ OS package updates in runtime image
+- ✅ Scan results uploaded to Seal platform
 
-### Configuration (.seal-actions.yml)
+**What Seal Didn't Fix (Intentionally):**
+- ⚠️ Newtonsoft.Json 10.0.3 remains vulnerable for demo purposes
+- ⚠️ TypeNameHandling.Auto code pattern requires manual fix
 
-```yaml
-projects:
-  seal-docker-demo-app:
-    targets:
-      - AppDemo.csproj
-    manager:
-      ecosystem: nuget
-    overrides:
-      Newtonsoft.Json:
-        "10.0.3":
-          use: "10.0.3-sp1"           # Seal's patched version  
-          reason: "Fixes CVE-2024-21907"
-          
-settings:
-  prefer_sealed_packages: true       # Use Seal patches over upgrades
-  upload_results: true              # Track fixes in Seal platform
+### Build Process
+
+```dockerfile
+# 1. Restore dependencies
+RUN dotnet restore AppDemo.csproj
+
+# 2. Seal patches vulnerable packages
+RUN seal fix --mode=all --upload-scan-results
+
+# 3. Re-restore to update project.assets.json
+RUN dotnet restore AppDemo.csproj
+
+# 4. Publish with patched dependencies
+RUN dotnet publish AppDemo.csproj -c Release -o /app/publish
 ```
 
-## CI/CD Pipeline
+## 🔄 CI/CD Pipeline
 
-The GitHub Actions workflow (`.github/workflows/build_and_run.yml`) automates:
+The GitHub Actions workflow automates:
 
-1. **Build**: Creates Seal-secured Docker image with vulnerability fixes
-2. **Deploy**: Runs the application container for testing
-3. **Scan**: Performs comprehensive security analysis with Snyk
-4. **Report**: Generates detailed vulnerability reports and artifacts
+1. 🏗️ **Build** - Docker image with Seal CLI integration
+2. 🚀 **Deploy** - Runs container for testing
+3. 🌐 **Expose** - Creates ngrok tunnel (optional)
+4. 🔍 **Scan** - Snyk container security analysis
+5. 📊 **Report** - Uploads scan results as artifacts
 
-### Workflow Triggers
-
-- **Push/PR**: Automatic security validation on code changes
-- **Manual**: On-demand execution via GitHub UI with custom parameters
-
-```bash
-# Manual trigger with custom fix modes
-gh workflow run "Seal Security ASP.NET Demo" \
-  --field app_fix_mode=all \
-  --field os_fix_mode=all
-```
+**Trigger:** Automatic on push, or manual via GitHub UI
 
 ## Security Scan Results
 
@@ -227,3 +238,4 @@ To demonstrate the vulnerability in action, the workflow can expose the applicat
 - [Newtonsoft.Json Security Advisory](https://github.com/advisories/GHSA-5crp-9r3c-p9vr)
 - [Seal Security Platform](https://seal.security)
 - [OWASP Deserialization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html)
+- [Seal Integration Guide for .NET + Docker](./SEAL-Integration-Guide.md)

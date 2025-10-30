@@ -3,18 +3,33 @@
 # Automatically fixes vulnerabilities at build time
 # ==========================================
 
-# Build stage - identical to original
+# Build stage with Seal application remediation
 FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
 WORKDIR /src
 
-# Copy and restore dependencies (still vulnerable at this stage)
-COPY AppDemo.csproj .
-RUN dotnet restore
-
-# Build application
-# Copy source code and build application
+# Bring in source code
 COPY . .
-# Publish the specific project to avoid MSBuild ambiguity when a solution file is present
+
+# Configure Seal Security (application remediation)
+ARG SEAL_APP_FIX_MODE=all
+ARG SEAL_PROJECT_ID=seal-docker-demo-app
+ENV SEAL_USE_SEALED_NAMES=true
+
+# Download Seal CLI
+ADD --chmod=755 \
+        https://github.com/seal-community/cli/releases/download/latest/seal-linux-amd64-latest \
+        /usr/local/bin/seal
+
+# Apply application-level fixes BEFORE restore/publish so patched deps are used
+RUN --mount=type=secret,id=SEAL_TOKEN,env=SEAL_TOKEN \
+        SEAL_PROJECT=${SEAL_PROJECT_ID} \
+        /usr/local/bin/seal fix \
+            --mode=${SEAL_APP_FIX_MODE} \
+            --upload-scan-results \
+    && rm -f /usr/local/bin/seal
+
+# Restore and publish with remediated dependencies
+RUN dotnet restore
 RUN dotnet publish AppDemo.csproj -c Release -o /app/publish --no-restore
 
 # Runtime stage with Seal Security integration
@@ -24,8 +39,7 @@ WORKDIR /app
 # Copy published application
 COPY --from=build /app/publish .
 
-# Configure Seal Security
-ARG SEAL_APP_FIX_MODE=all
+# Configure Seal Security (OS remediation at runtime stage)
 ARG SEAL_OS_FIX_MODE=all  
 ARG SEAL_PROJECT_ID=seal-docker-demo-app
 ENV SEAL_USE_SEALED_NAMES=true
@@ -35,22 +49,13 @@ ADD --chmod=755 \
     https://github.com/seal-community/cli/releases/download/latest/seal-linux-amd64-latest \
     /usr/local/bin/seal
 
-# Apply Seal Security fixes
+# Apply OS-level fixes for the runtime base
 RUN --mount=type=secret,id=SEAL_TOKEN,env=SEAL_TOKEN \
-    # Fix application vulnerabilities (Newtonsoft.Json, etc.)
-    SEAL_PROJECT=${SEAL_PROJECT_ID} \
-    /usr/local/bin/seal fix \
-        --mode=${SEAL_APP_FIX_MODE} \
-        --upload-scan-results \
-    && \
-    # Fix OS-level vulnerabilities  
     SEAL_PROJECT=${SEAL_PROJECT_ID}-os \
     /usr/local/bin/seal fix os \
-        --mode=${SEAL_OS_FIX_MODE} \
-        --upload-scan-results \
-    && \
-    # Clean up CLI binary
-    rm -f /usr/local/bin/seal
+      --mode=${SEAL_OS_FIX_MODE} \
+      --upload-scan-results \
+  && rm -f /usr/local/bin/seal
 
 # This image now contains:
 # - Patched Newtonsoft.Json (10.0.3-sp1 or equivalent)

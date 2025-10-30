@@ -8,5 +8,7 @@
   <ItemGroup>
     <!-- Vulnerable JSON library (known CVE-2024-21907 in versions <13.0.1) -->
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
+    <!-- Explicitly reference System.Net.Http to avoid NU1605 downgrade conflict after Seal remediation -->
+    <PackageReference Include="System.Net.Http" Version="4.3.0" />
   </ItemGroup>
 </Project>

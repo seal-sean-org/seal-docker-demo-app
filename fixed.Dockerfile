@@ -32,10 +32,9 @@ RUN --mount=type=secret,id=SEAL_TOKEN,env=SEAL_TOKEN \
             --upload-scan-results \
     && rm -f /usr/local/bin/seal
 
-# Publish with remediated dependencies (no re-restore to keep Seal-applied fixes)
-RUN dotnet publish AppDemo.csproj -c Release -o /app/publish --no-restore
-
-# Runtime stage with Seal Security integration
+    # Publish with remediated dependencies (no re-restore to keep Seal-applied fixes)
+    # Explicitly allow NU1605 warning to prevent Seal version conflicts from failing build
+    RUN dotnet publish AppDemo.csproj -c Release -o /app/publish --no-restore /p:WarningsNotAsErrors=NU1605# Runtime stage with Seal Security integration
 FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS runtime
 WORKDIR /app
 

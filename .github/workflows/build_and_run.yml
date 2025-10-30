@@ -29,6 +29,12 @@ jobs:
     name: Build & Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+      NGROK_DOMAIN_SECRET: ${{ secrets.NGROK_DOMAIN }}
+      NGROK_REGION: ${{ secrets.NGROK_REGION }}
+      SNYK_ORG: ${{ secrets.SNYK_ORG }}
+      SEAL_PROJECT_ID: ${{ secrets.SEAL_PROJECT_ID }}
     
     steps:
       - name: Checkout code
@@ -66,16 +72,16 @@ jobs:
           echo "Application running at http://localhost:8080"
 
       - name: Stop existing ngrok tunnels
-        if: ${{ secrets.NGROK_AUTHTOKEN != '' }}
+        if: ${{ env.NGROK_AUTHTOKEN != '' }}
         run: |
           # Stop any existing ngrok containers
           docker stop ngrok 2>/dev/null || true
           docker rm ngrok 2>/dev/null || true
           
           # Kill ALL existing tunnels via ngrok API to clear session limit
-          if [ -n "${{ secrets.NGROK_AUTHTOKEN }}" ]; then
+          if [ -n "${NGROK_AUTHTOKEN}" ]; then
             echo "Stopping all existing ngrok tunnels..."
-            curl -s -H "Authorization: Bearer ${{ secrets.NGROK_AUTHTOKEN }}" \
+            curl -s -H "Authorization: Bearer ${NGROK_AUTHTOKEN}" \
                  -H "Ngrok-Version: 2" \
                  https://api.ngrok.com/tunnels 2>/dev/null | \
             jq -r '.tunnels[]?.id // empty' 2>/dev/null | \
@@ -83,7 +89,7 @@ jobs:
               if [ -n "$tunnel_id" ]; then
                 echo "Stopping tunnel: $tunnel_id"
                 curl -s -X DELETE \
-                     -H "Authorization: Bearer ${{ secrets.NGROK_AUTHTOKEN }}" \
+                     -H "Authorization: Bearer ${NGROK_AUTHTOKEN}" \
                      -H "Ngrok-Version: 2" \
                      "https://api.ngrok.com/tunnels/$tunnel_id" 2>/dev/null || true
               fi
@@ -92,21 +98,23 @@ jobs:
           fi
 
       - name: Start ngrok tunnel
-        if: ${{ secrets.NGROK_AUTHTOKEN != '' }}
+        if: ${{ env.NGROK_AUTHTOKEN != '' }}
         run: |
-          flags="--authtoken=${{ secrets.NGROK_AUTHTOKEN }}"
-          if [ -n "${{ secrets.NGROK_DOMAIN }}" ]; then 
-            flags="$flags --hostname=${{ secrets.NGROK_DOMAIN }}"
+          flags="--authtoken=${NGROK_AUTHTOKEN}"
+          if [ -n "${NGROK_DOMAIN_SECRET}" ]; then 
+            flags="$flags --hostname=${NGROK_DOMAIN_SECRET}"
+          elif [ -n "${NGROK_DOMAIN}" ]; then
+            flags="$flags --hostname=${NGROK_DOMAIN}"
           fi
-          if [ -n "${{ secrets.NGROK_REGION }}" ]; then 
-            flags="$flags --region=${{ secrets.NGROK_REGION }}"
+          if [ -n "${NGROK_REGION}" ]; then 
+            flags="$flags --region=${NGROK_REGION}"
           fi
           
           # Run ngrok on same network, pointing to app container on port 80
           docker run -d --name ngrok --network demo-network ngrok/ngrok http ${{ env.DEMO_IMAGE }}:80 $flags || {
             echo "Failed with custom hostname, trying with random URL..."
             docker rm ngrok 2>/dev/null || true
-            docker run -d --name ngrok --network demo-network ngrok/ngrok http ${{ env.DEMO_IMAGE }}:80 --authtoken=${{ secrets.NGROK_AUTHTOKEN }}
+            docker run -d --name ngrok --network demo-network ngrok/ngrok http ${{ env.DEMO_IMAGE }}:80 --authtoken=${NGROK_AUTHTOKEN}
           }
           
           sleep 5 && docker logs ngrok
@@ -121,8 +129,7 @@ jobs:
           snyk auth $SNYK_TOKEN
           
           # Configure organization if provided
-          if [ -n "${{ secrets.SNYK_ORG }}" ]; then
-            export SNYK_ORG="${{ secrets.SNYK_ORG }}"
+          if [ -n "${SNYK_ORG}" ]; then
             ORG_FLAG="--org=$SNYK_ORG"
           fi
           
@@ -157,7 +164,7 @@ jobs:
             snyk-summary.txt
 
       - name: Keep tunnel alive
-        if: ${{ secrets.NGROK_AUTHTOKEN != '' }}
+        if: ${{ env.NGROK_AUTHTOKEN != '' }}
         run: docker logs -f ngrok
 
       - name: Cleanup

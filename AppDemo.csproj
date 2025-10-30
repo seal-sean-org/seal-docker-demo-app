@@ -7,6 +7,9 @@
     <!-- Seal applies security hotfix packages that NuGet labels as pre-release (sp1),
          so ensure downgrade warning NU1605 stays a warning instead of failing the publish. -->
     <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1605</WarningsNotAsErrors>
+    <!-- Suppress NuGet/restore downgrade warning NU1605 (pre-release Seal packages) -->
+    <RestoreNoWarn>$(RestoreNoWarn);NU1605</RestoreNoWarn>
+    <NoWarn>$(NoWarn);NU1605</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <!-- Vulnerable JSON library (known CVE-2024-21907 in versions <13.0.1) -->

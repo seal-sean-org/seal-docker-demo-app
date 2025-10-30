@@ -24,7 +24,7 @@ ADD --chmod=755 \
         https://github.com/seal-community/cli/releases/download/latest/seal-linux-amd64-latest \
         /usr/local/bin/seal
 
-# Apply application-level fixes AFTER initial restore so package manager output is available
+    # Apply application-level fixes AFTER initial restore so package manager output is available
 RUN --mount=type=secret,id=SEAL_TOKEN,env=SEAL_TOKEN \
         SEAL_PROJECT=${SEAL_PROJECT_ID} \
         /usr/local/bin/seal fix \
@@ -32,11 +32,10 @@ RUN --mount=type=secret,id=SEAL_TOKEN,env=SEAL_TOKEN \
             --upload-scan-results \
     && rm -f /usr/local/bin/seal
 
-    # Publish with remediated dependencies (no re-restore to keep Seal-applied fixes)
-    # Suppress NU1605 warning to allow Seal-patched package versions
-    RUN dotnet publish AppDemo.csproj -c Release -o /app/publish --no-restore /p:NoWarn=NU1605
-
-    # Runtime stage with Seal Security integration
+    # Re-run restore after Seal modifies packages to regenerate consistent project.assets.json
+    # Then publish with the Seal-patched dependencies
+    RUN dotnet restore AppDemo.csproj \
+        && dotnet publish AppDemo.csproj -c Release -o /app/publish    # Runtime stage with Seal Security integration
 FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS runtime
 WORKDIR /app
 

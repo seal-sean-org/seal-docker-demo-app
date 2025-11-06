@@ -2,6 +2,7 @@
 
 A minimal ASP.NET 7 application demonstrating Seal Security's automated vulnerability remediation in Docker builds.
 
+
 ## What This Demo Shows
 
 **Live Demo:** https://sealdemo.ngrok.dev/
